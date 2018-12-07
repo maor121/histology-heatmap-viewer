@@ -22,10 +22,12 @@ from flask import Flask, abort, make_response, render_template, url_for
 from io import BytesIO
 import openslide
 from openslide import ImageSlide, open_slide
-from openslide.deepzoom import DeepZoomGenerator
 from optparse import OptionParser
 import re
 from unicodedata import normalize
+from PIL import Image
+from MaskDeepZoomGenerator import MaskDeepZoomGenerator
+import threading
 
 DEEPZOOM_SLIDE = None
 DEEPZOOM_FORMAT = 'jpeg'
@@ -49,6 +51,7 @@ class PILBytesIO(BytesIO):
 @app.before_first_request
 def load_slide():
     slidefile = app.config['DEEPZOOM_SLIDE']
+    maskfile = app.config.get('DEEPZOOM_MASK', None)
     if slidefile is None:
         raise ValueError('No slide file specified')
     config_map = {
@@ -58,15 +61,19 @@ def load_slide():
     }
     opts = dict((v, app.config[k]) for k, v in config_map.items())
     slide = open_slide(slidefile)
+
+    lock = threading.Lock()
+
+    mask_image = Image.open(maskfile) if maskfile else None
     app.slides = {
-        SLIDE_NAME: DeepZoomGenerator(slide, **opts)
+        SLIDE_NAME: MaskDeepZoomGenerator(lock, mask_image, slide, **opts)
     }
     app.associated_images = []
     app.slide_properties = slide.properties
     for name, image in slide.associated_images.items():
         app.associated_images.append(name)
         slug = slugify(name)
-        app.slides[slug] = DeepZoomGenerator(ImageSlide(image), **opts)
+        app.slides[slug] = MaskDeepZoomGenerator(lock, mask_image, ImageSlide(image), **opts)
     try:
         mpp_x = slide.properties[openslide.PROPERTY_NAME_MPP_X]
         mpp_y = slide.properties[openslide.PROPERTY_NAME_MPP_Y]
@@ -124,7 +131,7 @@ def slugify(text):
 
 
 if __name__ == '__main__':
-    parser = OptionParser(usage='Usage: %prog [options] [slide]')
+    parser = OptionParser(usage='Usage: %prog [options] [slide] [mask]')
     parser.add_option('-B', '--ignore-bounds', dest='DEEPZOOM_LIMIT_BOUNDS',
                 default=True, action='store_false',
                 help='display entire scan area')
@@ -166,5 +173,10 @@ if __name__ == '__main__':
     except IndexError:
         if app.config['DEEPZOOM_SLIDE'] is None:
             parser.error('No slide file specified')
+    # Set mask file
+    try:
+        app.config['DEEPZOOM_MASK'] = args[1]
+    except IndexError:
+        print('No mask file specified')
 
     app.run(host=opts.host, port=opts.port, threaded=True)

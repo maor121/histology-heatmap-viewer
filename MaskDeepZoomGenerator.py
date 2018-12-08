@@ -5,13 +5,18 @@ from openslide.deepzoom import DeepZoomGenerator
 import matplotlib.pyplot as plt
 
 from PIL import Image
-import cv2
 
 class MaskDeepZoomGenerator(DeepZoomGenerator):
     def __init__(self, lock, mask_image, osr, tile_size=254, overlap=1, limit_bounds=False):
         super(MaskDeepZoomGenerator, self).__init__(osr, tile_size, overlap, limit_bounds)
 
-        self.mask_image = mask_image
+
+
+        mask = Image.new('RGBA', mask_image.size, color=(255, 255, 255, 80))
+        mask_image = PIL.ImageChops.multiply(mask_image, mask)
+
+        self.mask_image = mask_image  # .convert('RGB')
+
         if mask_image:
             self.lock = lock
             self.svs_full_size = eval(mask_image.info['svs-full-size'])
@@ -58,14 +63,8 @@ class MaskDeepZoomGenerator(DeepZoomGenerator):
 
             tile_mask_resized = tile_mask.resize(tile.size, PIL.Image.NEAREST)
 
-            #if tile_size_mask == self.mask_image.size:
-            #    output_dir = '/home/maor16-04/tmpimg/'
-            #    randint = random.randint(0, 1000)
-            #    tile_mask_resized.save(fp=output_dir+'%d_tile_resized.png' % randint, format='png', compress_level=4)  # compression (0,9). Default 6. 9=highest & slowest
-            #    tile.save(fp=output_dir+'%d_tile.png' % randint, format='png', compress_level=4)
-
+            #tile = Image.blend(tile, tile_mask_resized, alpha=0.1)
             tile = Image.composite(tile_mask_resized, tile, tile_mask_resized)
-
         # Scale to the correct size
         if tile.size != z_size:
             tile.thumbnail(z_size, Image.ANTIALIAS)

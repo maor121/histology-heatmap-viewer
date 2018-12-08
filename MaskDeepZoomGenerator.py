@@ -10,8 +10,6 @@ class MaskDeepZoomGenerator(DeepZoomGenerator):
     def __init__(self, lock, mask_image, osr, tile_size=254, overlap=1, limit_bounds=False):
         super(MaskDeepZoomGenerator, self).__init__(osr, tile_size, overlap, limit_bounds)
 
-
-
         mask = Image.new('RGBA', mask_image.size, color=(255, 255, 255, 80))
         mask_image = PIL.ImageChops.multiply(mask_image, mask)
 
@@ -21,8 +19,7 @@ class MaskDeepZoomGenerator(DeepZoomGenerator):
             self.lock = lock
             self.svs_full_size = eval(mask_image.info['svs-full-size'])
             self.refactor_size = tuple([ (1.0 * self.svs_full_size[i] / self.mask_image.size[i]) for i in range(2)])
-            #refactor_size_2 = eval(mask_image.info['resize-factor'])
-            #print(self.refactor_size, refactor_size_2)
+            #self.refactor_size = eval(mask_image.info['resize-factor'])
 
     def get_tile(self, level, address):
         """Return an RGB PIL.Image for a tile.
@@ -42,11 +39,8 @@ class MaskDeepZoomGenerator(DeepZoomGenerator):
         if self.mask_image:
             dim0 = self._l_dimensions[0]
             dimtile = self._l_dimensions[args[1]]
-            mask_size = self.mask_image.size
             tile_resize_factor = tuple([ (1.0 * dim0[i] / dimtile[i]) for i in range(2)])
-            #mask_to_tile_factor = tuple([ (self.refactor_size[i] / tile_resize_factor[i]) for i in range(2)])
 
-            #tile_loc = args[0]
             tile_loc_0 = args[0]
 
             tile_loc_mask = tuple([ int(tile_loc_0[i] / self.refactor_size[i]) for i in range(2)])
@@ -56,8 +50,8 @@ class MaskDeepZoomGenerator(DeepZoomGenerator):
                    tile_loc_mask[0] + tile_size_mask[0],
                    tile_loc_mask[1] + tile_size_mask[1])  # left upper right lower 0, 0, 2893,2377
 
-            self.lock.acquire()
             # PIL is not threadsafe
+            self.lock.acquire()
             tile_mask = self.mask_image.crop(box=box)
             self.lock.release()
 

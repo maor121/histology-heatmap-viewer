@@ -2,7 +2,6 @@ import random
 
 import PIL
 from openslide.deepzoom import DeepZoomGenerator
-import matplotlib.pyplot as plt
 
 from PIL import Image
 
